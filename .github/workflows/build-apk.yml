@@ -1,0 +1,44 @@
+# 自动编译 APK 并发布到 Releases
+# 固定下载地址：https://github.com/KYLOVEZW/pda-dim/releases/latest/download/paizhao-liangfang.apk
+name: Build APK
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unpack source bundle (first run only)
+        run: |
+          if [ -f bundle.txz ]; then
+            tar xJf bundle.txz && rm bundle.txz
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add -A && git commit -m "Unpack source bundle" && git push
+          fi
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Build
+        run: |
+          gradle assembleDebug --no-daemon
+          cp app/build/outputs/apk/debug/app-debug.apk paizhao-liangfang.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: paizhao-liangfang.apk
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.2.0-build${{ github.run_number }}
+          name: 拍照量方 0.2.0（第 ${{ github.run_number }} 次构建）
+          files: paizhao-liangfang.apk
+          make_latest: true
