@@ -11,6 +11,7 @@ import android.os.Environment
 import android.provider.MediaStore
 import android.provider.Settings
 import android.util.Base64
+import android.view.KeyEvent
 import android.view.WindowManager
 import android.webkit.JavascriptInterface
 import android.webkit.PermissionRequest
@@ -41,6 +42,7 @@ class MainActivity : ComponentActivity() {
     private var pendingAfterCameraPermission: (() -> Unit)? = null
     private var fileCallback: ValueCallback<Array<Uri>>? = null
     private var photoUri: Uri? = null
+    @Volatile private var cameraActive = false
 
     private val cameraPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         pendingWebPermission?.let { req ->
@@ -122,6 +124,21 @@ class MainActivity : ComponentActivity() {
         else web.restoreState(savedInstanceState)
     }
 
+    /** 拍照页打开时：音量键、相机键、PDA 侧键/扫描键（常见键码 280-293、520-523、F1-F12）都当作拍照键 */
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        val k = event.keyCode
+        val shutterKey = k == KeyEvent.KEYCODE_VOLUME_UP || k == KeyEvent.KEYCODE_VOLUME_DOWN ||
+            k == KeyEvent.KEYCODE_CAMERA || k == KeyEvent.KEYCODE_FOCUS ||
+            k in 280..293 || k in 520..523 || k in KeyEvent.KEYCODE_F1..KeyEvent.KEYCODE_F12
+        if (cameraActive && shutterKey) {
+            if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+                web.evaluateJavascript("window.__shutter && window.__shutter()", null)
+            }
+            return true
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
     override fun onSaveInstanceState(outState: Bundle) { super.onSaveInstanceState(outState); web.saveState(outState) }
 
     private fun hasCamera() =
@@ -129,6 +146,9 @@ class MainActivity : ComponentActivity() {
 
     /** 页面可调用的原生能力：window.AndroidBridge.xxx */
     inner class Bridge {
+        @JavascriptInterface
+        fun setCameraActive(active: Boolean) { cameraActive = active }
+
         @JavascriptInterface
         fun openAppSettings() {
             runOnUiThread {
