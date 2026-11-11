@@ -72,7 +72,11 @@ class MainActivity : ComponentActivity() {
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
             .build()
 
+        // 启动时先显示深色底，避免白屏闪烁；WebView 用硬件加速
+        window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(0xFF16181D.toInt()))
         web = WebView(this)
+        web.setBackgroundColor(0xFFEEF0F3.toInt())
+        web.setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
         setContentView(web)
         web.settings.apply {
             javaScriptEnabled = true
